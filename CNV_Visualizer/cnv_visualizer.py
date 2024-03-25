@@ -61,7 +61,7 @@ class cnv_visualizer:
         # Drop Antitarget entries 
         df.drop(df[df['gene'].str.contains('Antitarget') == True].index, inplace = True)
         #Reverse function to log2 
-        df.loc[:, 'squaredvalue'] = 2**df['log2']
+        df.loc[:, 'CN'] = 2**df['log2']
         #Split gene and exon file into two seperate fields 
         df['gene'] = df['gene'].str.split('_')
         df.loc[:, 'exon'] = df['gene'].str[1].astype(int)
@@ -94,7 +94,7 @@ class cnv_visualizer:
         # Drop Antitarget entries  
         parent_df.drop(parent_df[parent_df['gene'].str.contains('Antitarget') == True].index, inplace = True)
         #Reverse function to log2 
-        parent_df.loc[:, 'squaredvalue'] = 2**parent_df['log2']
+        parent_df.loc[:, 'CN'] = 2**parent_df['log2']
         #Split gene and exon file into two seperate fields 
         parent_df['gene'] = parent_df['gene'].str.split('_')
         parent_df.loc[:, 'exon'] = parent_df['gene'].str[1].astype(int)
