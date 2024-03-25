@@ -204,6 +204,14 @@ class cnv_visualizer:
             df_cons (pandas DataFrame) -> .cnr DataFrame with applied filter for consecutive deletions/duplications
 
         """
+        #Set standard values : 
+        if del_size is None or del_size=="":
+            del_size = 2 
+        if dup_size is None or dup_size=="":
+            dup_size=2
+        #Convert del_size and dup_size to int, because streamlit input is String 
+        del_size = int(del_size)
+        dup_size = int(dup_size)
         #Filter for consecutive deletions
         if del_or_dup == 'del':
             df_cons = df[(((df['call'] == 0) | (df['call'] ==1)) & ((df['difference_previous'] == -1) | (df['difference_previous'] ==1))) | (((df['call'] == 0) | (df['call'] ==1)) & ((df['difference_next'] == -1) | (df['difference_next'] ==1)))]
@@ -211,7 +219,7 @@ class cnv_visualizer:
             affected_size = df_cons.groupby('gene')['gene'].size().reset_index(name='counts')
             df_cons = pd.merge(df_cons, affected_size, on='gene', how='left')
             #Select only those genes which contain the defined amount of deleted exons or which are smaller than the defined number
-            df_cons = df_cons[(df_cons['counts']==del_size)|(df_cons['gene_size'] == df_cons['counts'])]
+            df_cons = df_cons[(df_cons['counts']>=del_size)|(df_cons['gene_size'] == df_cons['counts'])]
         #Filter for consecutive duplications
         else:
             df_cons = df[(((df['call'] == 3)) & ((df['difference_previous'] == -1) | (df['difference_previous'] ==1))) | (((df['call'] == 3)) & ((df['difference_next'] == -1) | (df['difference_next'] ==1)))]
@@ -219,7 +227,7 @@ class cnv_visualizer:
             affected_size = df_cons.groupby('gene')['gene'].size().reset_index(name='counts')
             df_cons = pd.merge(df_cons, affected_size, on='gene', how='left')
             #Select only those genes which contain the defined amount of duplicated exons or which are smaller than the defined number
-            df_cons = df_cons[(df_cons['counts']==dup_size)|(df_cons['gene_size'] == df_cons['counts'])]
+            df_cons = df_cons[(df_cons['counts']>=dup_size)|(df_cons['gene_size'] == df_cons['counts'])]
         return df_cons
     
     #Filter using candigene list
