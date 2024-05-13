@@ -404,7 +404,7 @@ if (entered_reference is not None) and (entered_cnr is not None) and (entered_bi
     father_cnr_df = cnv_visualizer_initialised.prepare_parent_cnv(father_cnr_df)
     father_cnr_df = father_cnr_df.drop(["chromosome","start","end"],axis=1)
     father_cnr_df = father_cnr_df.rename(columns={"gene": "gene_f", "exon": "exon_f", "depth": "depth_f",
-                                                  "weight": "weight_f", "call": "call_f", "log2": "log2_f", "squaredvalue": "squaredvalue_f"})
+                                                  "weight": "weight_f", "call": "call_f", "log2": "log2_f", "CN": "CN_f"})
     #round float values to 2 decimals
     father_cnr_df = father_cnr_df.round(2)
 
@@ -413,7 +413,7 @@ if (entered_reference is not None) and (entered_cnr is not None) and (entered_bi
     mother_cnr_df = cnv_visualizer_initialised.prepare_parent_cnv(mother_cnr_df)
     mother_cnr_df = mother_cnr_df.drop(["chromosome","start","end"],axis=1)
     mother_cnr_df = mother_cnr_df.rename(columns={"gene": "gene_m", "exon": "exon_m", "depth": "depth_m",
-                                                  "weight": "weight_m", "call": "call_m", "log2": "log2_m", "squaredvalue": "squaredvalue_m"})
+                                                  "weight": "weight_m", "call": "call_m", "log2": "log2_m", "CN": "CN_m"})
     #round float values to 2 decimals
     mother_cnr_df = mother_cnr_df.round(2)
 
