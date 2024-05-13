@@ -8,14 +8,11 @@ File used to run the CNVizard, a streamlit app that visualizes germline-copy-num
 
 import streamlit as st
 import pandas as pd
-import matplotlib
-from matplotlib import pyplot
 import os 
 from io import BytesIO
 import xlsxwriter
 import numpy as np
 import pyarrow
-import mpld3
 from CNV_Visualizer import cnv_visualizer
 from CNV_Visualizer import styler
 from CNV_Visualizer import exporter
@@ -92,7 +89,7 @@ else:
 #Once a index .cnr file is uploaded, extract sample name, which will later be used in the title of the plots 
 if entered_cnr is not None:
     sample_name = entered_cnr.name.split(".")[0]
-    if (dotenv.load_dotenv()) == True:
+    if igv_string is not None:
         igv_string = igv_string.replace("samplename", sample_name)
 
     
@@ -255,7 +252,7 @@ if (entered_reference is not None) and (entered_cnr is not None) and (entered_bi
     bintest_db = bintest_db.rename(columns={"chromosome": "chr"})
     bintest_db = bintest_db.round(2)
     #if an env file was created, create a column for an igv outlink 
-    if (dotenv.load_dotenv()) == True:
+    if igv_string is not None:
         cnr_db_filtered["IGV_outlink"] = igv_string + cnr_db_filtered["chr"] + ":" + cnr_db_filtered["start"].astype(str)
         bintest_db["IGV_outlink"] = igv_string + bintest_db["chr"] + ":" + bintest_db["start"].astype(str)
 
@@ -335,7 +332,8 @@ if (entered_reference is not None) and (entered_cnr is not None) and (entered_bi
         filtered_for_dup = cnv_visualizer_initialised.prepare_filter_for_consecutive_cnvs(filtered_for_dup)
         filtered_for_dup = cnv_visualizer_initialised.filter_for_consecutive_cnvs(filtered_for_dup,"dup",entered_del_size,entered_dup_size)
 
-        to_be_exported = exporter.save_tables_as_excel(cnr_db,bintest_db,hom_del_df_total,filtered_for_candi_df_total,
+        table_exporter =exporter.cnv_exporter()
+        to_be_exported = table_exporter.save_tables_as_excel(cnr_db,bintest_db,hom_del_df_total,filtered_for_candi_df_total,
                                                       filtered_for_candi_df_bintest,filtered_for_del,filtered_for_dup)
         download_button_columns[0].download_button(label="Download",
                            data=to_be_exported,
@@ -348,8 +346,8 @@ if (entered_reference is not None) and (entered_cnr is not None) and (entered_bi
     #The required export functions are defined in /CNV_Visualizer/exporter.py
     
     if download_preparator_filtered:
-
-        to_be_exported_filtered = exporter.save_filtered_table_as_excel(download_filter,download_filter_name)
+        table_exporter =exporter.cnv_exporter()
+        to_be_exported_filtered = table_exporter.save_filtered_table_as_excel(download_filter,download_filter_name)
         download_button_columns[1].download_button(label="Download_filtered",
                                                    data=to_be_exported_filtered,
                                                    file_name = sample_name + "filtered_df.xlsx")
@@ -372,8 +370,9 @@ else:
 #To compare the index log2 and weight from the .cnr file to the reference, the index values are plotted ontop of the 
 #boxplots as a plotly scatterplot
 if (entered_reference is not None) and (entered_cnr is not None) and (entered_bintest is not None) and (entered_gene is not None) and (entered_gene != ""):
-    plotter.plot_log2_for_gene_precomputed(entered_gene,cnr_db,reference_df,sample_name)
-    plotter.plot_depth_for_gene_precomputed(entered_gene,cnr_db,reference_df,sample_name)
+    gene_plotter = plotter.cnv_plotter()
+    gene_plotter.plot_log2_for_gene_precomputed(entered_gene,cnr_db,reference_df,sample_name)
+    gene_plotter.plot_depth_for_gene_precomputed(entered_gene,cnr_db,reference_df,sample_name)
 
 #In this section the user has the option to additionally upload .cnr file from the index patients parents     
 st.subheader ("Load additional .cnr files from the index patients corresponding parents")
@@ -488,6 +487,8 @@ with st.expander("Filter for .tsv file"):
 #For visibility purposes multiple columns are dropped and the remaining columns are rearranged
 #Import Annotsv Column file (a column file, which contains a single column in which the preferred columns from Annotsv raw output are listed)
 if entered_tsv_file is not None:
+    if sample_name is None in globals():
+        sample_name = entered_cnr.name.split(".")[0]
     tsv_df = pd.read_csv(entered_tsv_file,header=0,delimiter="\t")
     all_columns_tsv = tsv_df.columns.tolist()
     
@@ -506,6 +507,7 @@ if entered_tsv_file is not None:
     tsv_df = tsv_df.reset_index(drop=True)
     #Apply the user defined filters
     filtered_tsv = helpers.filter_tsv(tsv_df,chromosome_list_cnv,cnv_type,acmg_class,entered_cnv_chrom,entered_cnv_type,entered_acmg_class)
+    filtered_tsv = filtered_tsv.fillna(".")
     #Display the filtered .tsv dataframe
     st.write(filtered_tsv)
 
@@ -513,7 +515,8 @@ if entered_tsv_file is not None:
     #Because of Performance reasons this is only triggered if clicked by the user 
     #The export functions are defined in /CNV_Visualizer/exporter.py
     if st.button("prepare for download of annotated tsv data"):
-        to_be_exported = exporter.save_tables_as_excel_tsv(filtered_tsv)
+        table_exporter = exporter.cnv_exporter()
+        to_be_exported = table_exporter.save_tables_as_excel_tsv(filtered_tsv)
         st.download_button(label="Download",
                            data=to_be_exported,
                            file_name = sample_name + "_annotated_df.xlsx")
