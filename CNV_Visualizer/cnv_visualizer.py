@@ -6,10 +6,8 @@ File which contains the main backbone of the CNVizard, that formats the input fi
 """
 import streamlit as st
 import pandas as pd
-import matplotlib
 import os 
 import xlsxwriter
-from sklearn import preprocessing
 import numpy as np
 import pyarrow
 
@@ -288,13 +286,13 @@ class cnv_visualizer:
             gene_selection = gene_list
         #If no depth is defined, assign a negative value to not lose values <0
         if depth_selection is None or depth_selection=="":
-            depth_selection=float(-10)
+            depth_selection=float(-10000)
         #If no weight is defined, assign a negative value to not lose values <0
         if weight_selection is None or weight_selection=="":
-            weight_selection=float(-10)
+            weight_selection=float(-10000)
         #If no log2 is defined, assign a negative value to not lose values <0
         if log2_selection is None or log2_selection=="":
-            log2_selection=float(-10)
+            log2_selection=float(-10000)
         #If no maximal heterozygous deletion frequency is defined, assign a max frequency of 1 
         if het_del_selection is None or het_del_selection=="":
             het_del_selection = float(1)
