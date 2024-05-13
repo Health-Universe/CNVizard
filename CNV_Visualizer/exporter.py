@@ -178,15 +178,7 @@ class cnv_exporter:
                 "border": 1,
                 }
             )
-            #Add conditional color coding, similar to the pandas styler
-            format_yellow = workbook.add_format({"bg_color": "#FFFF00"})
-            format_red = workbook.add_format({"bg_color": "#ff0000"})
             worksheet.set_column(1, num_columns, 11)
-            worksheet.conditional_format('G1:G1048576', {'type': '3_color_scale', 'min_type': 'num', 'min_value': 0,'mid_type': 'num','mid_value': 0.5,'max_type': 'num','max_value': 1})
-            worksheet.conditional_format('I1:I1048576', {'type': 'cell', 'criteria': 'less than or equal to', 'value':  -0.65, 'format':   format_yellow})
-            column_length = str(len(df))
-            area_to_color = 'F1:' + "F" + column_length 
-            worksheet.conditional_format(area_to_color, {'type': 'cell', 'criteria': 'equal to', 'value':  0, 'format':   format_red})
             for col_num, value in enumerate(df.columns.values):
                 worksheet.write(0, col_num, value, header_format)
             #Add Background colors
