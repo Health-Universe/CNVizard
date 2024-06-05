@@ -10,29 +10,7 @@ import os
 import pandas as pd
 from cnvizard.reference_builder.data_processing import prepare_cnv_table, explode_cnv_table
 
-def main():
-    # Create command-line parser
-    parser = argparse.ArgumentParser(description="Create Reference Parquet")
-
-    # Required positional arguments
-    parser.add_argument('-i', type=str, help='Input path for CNVkit .cnr files')
-    parser.add_argument('-n', type=str, help='NGS method (WES or WGS)')
-    parser.add_argument('-o', type=str, help='Output path')
-    parser.add_argument('-r', type=str, help='Path to omim_reference')
-    parser.add_argument('-t', type=str, help='Type of reference (bintest or normal)')
-    parser.add_argument('-s', type=str, help='Starting letter of subdir containing the sample')
-
-    # Get command-line arguments
-    args = parser.parse_args()
-
-    # Load parsed arguments into corresponding variables
-    path_to_input = args.i
-    ngs_type = args.n
-    path_to_output = args.o
-    omim_path = args.r
-    reference_type = args.t
-    starting_letter = args.s
-
+def create_reference_files(path_to_input, ngs_type, path_to_output, omim_path, reference_type, starting_letter):
     # Define run name
     run_name = os.path.basename(os.path.normpath(path_to_input))
 
@@ -68,6 +46,24 @@ def main():
 
     # Export reference to parquet file
     ordered_reference.to_parquet(export_name_parquet, index=False)
+
+def main():
+    # Create command-line parser
+    parser = argparse.ArgumentParser(description="Create Reference Parquet")
+
+    # Required positional arguments
+    parser.add_argument('-i', type=str, help='Input path for CNVkit .cnr files')
+    parser.add_argument('-n', type=str, help='NGS method (WES or WGS)')
+    parser.add_argument('-o', type=str, help='Output path')
+    parser.add_argument('-r', type=str, help='Path to omim_reference')
+    parser.add_argument('-t', type=str, help='Type of reference (bintest or normal)')
+    parser.add_argument('-s', type=str, help='Starting letter of subdir containing the sample')
+
+    # Get command-line arguments
+    args = parser.parse_args()
+
+    # Call the function with parsed arguments
+    create_reference_files(args.i, args.n, args.o, args.r, args.t, args.s)
 
 if __name__ == "__main__":
     main()

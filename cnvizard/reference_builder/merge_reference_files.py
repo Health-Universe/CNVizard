@@ -11,23 +11,7 @@ import pandas as pd
 import numpy as np
 from cnvizard.reference_builder.data_processing import _get_call_counts, _get_frequency, _get_frequency_bintest
 
-def main():
-    # Create command-line parser
-    parser = argparse.ArgumentParser(description="Merge Reference Parquet")
-
-    # Required positional arguments
-    parser.add_argument('-i', type=str, help='Input path for reference .parquet files')
-    parser.add_argument('-o', type=str, help='Output path')
-    parser.add_argument('-b', type=str, help='Input path for bintest reference .parquet files')
-
-    # Get command-line arguments
-    args = parser.parse_args()
-
-    # Load parsed arguments into corresponding variables
-    path_to_input = args.i
-    path_to_output = args.o
-    path_to_bintest = args.b
-
+def merge_reference_files(path_to_input, path_to_output, path_to_bintest):
     # Load reference files
     reference_files = [os.path.join(path_to_input, f) for f in os.listdir(path_to_input) if f.endswith('.parquet')]
     reference_dfs = [pd.read_parquet(file) for file in reference_files]
@@ -97,6 +81,21 @@ def main():
 
     # Write merged and formatted reference to parquet file
     reference_df.to_parquet(os.path.join(path_to_output, "cnv_reference.parquet"))
+
+def main():
+    # Create command-line parser
+    parser = argparse.ArgumentParser(description="Merge Reference Parquet")
+
+    # Required positional arguments
+    parser.add_argument('-i', type=str, help='Input path for reference .parquet files')
+    parser.add_argument('-o', type=str, help='Output path')
+    parser.add_argument('-b', type=str, help='Input path for bintest reference .parquet files')
+
+    # Get command-line arguments
+    args = parser.parse_args()
+
+    # Call the function with parsed arguments
+    merge_reference_files(args.i, args.o, args.b)
 
 if __name__ == "__main__":
     main()

@@ -7,8 +7,7 @@ Email: jerkrause@ukaachen.de
 
 import pandas as pd
 
-
-def make_pretty(styler: pd.io.formats.style.Styler) -> pd.io.formats.style.Styler:
+def make_pretty(styler):
     """
     Styler function used to highlight and format the filtered .cnr/bintest DataFrame.
 
@@ -27,3 +26,7 @@ def make_pretty(styler: pd.io.formats.style.Styler) -> pd.io.formats.style.Style
     styler.highlight_between(subset='depth', color='red', axis=0, right=0)
     styler.highlight_between(subset='log2', axis=0, right=-0.65)
     return styler
+
+def mark_log2(value):
+    if value <= float(0.65):
+        return "background-color: pink;"
