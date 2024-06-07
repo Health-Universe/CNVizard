@@ -3,4 +3,3 @@ include LICENSE
 include setup.py
 recursive-include cnvizard/cnv_visualizer *
 recursive-include cnvizard/reference_builder *
-recursive-include cnvizard/resources *

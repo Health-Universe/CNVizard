@@ -1,66 +1,105 @@
-"""
-Run CNVizard, a Streamlit app that visualizes germline copy number variants.
-Authors: Jeremias Krause, Carlos Classen, Matthias Begemann, Florian Kraft
-Company: University Hospital Aachen
-Email: jerkrause@ukaachen.de
-"""
-
 import streamlit as st
 import pandas as pd
 import os
 from pathlib import Path
 import dotenv
-from cnvizard.cnv_visualizer import styler, exporter, plotter, helpers, visualizer
-import cnvlib
-from cnvlib.commands import do_scatter
+import argparse
+from cnvizard import make_pretty, CNVExporter, CNVPlotter, filter_tsv, CNVVisualizer, prepare_cnv_table, explode_cnv_table
+    
 
-def main():
-    # Load environment variables for IGV link
-    dotenv.load_dotenv()
+def load_and_select_env():
+    st.title("CNVizard Environment Selector")
+
+    st.markdown("""
+    ### Select or Create an Environment File
+    """)
+
+    uploaded_env_file = st.file_uploader("Upload environment file")
+
+    if uploaded_env_file:
+        env_file =  uploaded_env_file.name
+        with open(env_file, "wb") as file:
+            file.write(uploaded_env_file.getbuffer())
+        return env_file
+
+    if st.button("Create new `.env` file"):
+        st.markdown("#### Provide the paths for the new `.env` file")
+        env_output_path = st.text_input("Output path for new environment file:", "default.env")
+        
+        omim_annotation_path = st.text_input("OMIM annotation path:", "./resources/omim/omim.txt")
+        candidate_list_dir = st.text_input("Candidate list directory:", "./resources/candidate_lists")
+        reference_files_dir = st.text_input("Reference files directory:", "./resources/references")
+        annotsv_format_path = st.text_input("Annotsv format path:", "./resources/annotsv_format.txt")
+
+        if st.button("Save new `.env` file"):
+            env_file = env_output_path if env_output_path else ".env"
+            with open(env_file, "w") as file:
+                file.write(f"OMIM_ANNOTATION_PATH={omim_annotation_path}\n")
+                file.write(f"CANDIDATE_LIST_DIR={candidate_list_dir}\n")
+                file.write(f"REFERENCE_FILES_DIR={reference_files_dir}\n")
+                file.write(f"ANNOTS_SV_FORMAT_PATH={annotsv_format_path}\n")
+            st.success(f"New `.env` file created: `{env_file}`")
+            return env_file
+
+    return None
+
+def main(env_file_path):
+    if env_file_path is None:
+        env_file_path = load_and_select_env()
+        if not env_file_path:
+            st.stop()
+
+    # Load environment variables
+    dotenv.load_dotenv(env_file_path)
     igv_string = os.getenv("APPSETTING_IGV_OUTLINK")
 
-    # Set Streamlit page configuration
-    st.set_page_config(layout="wide", page_title="CNVizard", page_icon="CNVizard.png")
-
-    # Define current working directory
-    current_working_dir = Path.cwd()
-
-    # Define paths to resources
-    resources_dir = current_working_dir / "resources"
-    omim_annotation_path = resources_dir / "omim/omim.txt"
-    candi_annotation_dir = resources_dir / "candidate_lists"
-    annotsv_format_path = resources_dir / "annotsv_format.txt"
+    # Load paths from environment variables
+    omim_annotation_path = Path(os.getenv("OMIM_ANNOTATION_PATH", "./resources/omim/omim.txt"))
+    candidate_list_dir = Path(os.getenv("CANDIDATE_LIST_DIR", "./resources/candidate_lists"))
+    reference_files_dir = Path(os.getenv("REFERENCE_FILES_DIR", "./resources/references"))
+    annotsv_format_path = Path(os.getenv("ANNOTS_SV_FORMAT_PATH", "./resources/annotsv_format.txt"))
 
     # Filter options
     chrom_list = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
     call_list = [0, 1, 2, 3]
-    gene_list = pd.read_csv(omim_annotation_path, sep="\t")["gene"].tolist()
 
     # Streamlit App Title
     st.title("CNVizard")
     st.markdown("This is a Streamlit web app providing analysis tools for genetic copy number variants.")
 
-    # File uploaders
+    # File Uploads Section
     st.subheader("Upload")
     st.markdown("Please upload a reference file, an individual .cnr file, and an individual .bintest file, provided by CNVkit.")
 
+    omim_annotation_file = None
+    gene_list = []
+
+    if omim_annotation_path.exists():
+        omim_annotation_file = omim_annotation_path
+        gene_list = pd.read_csv(omim_annotation_file, sep="\t")["gene"].tolist()
+
     cols = st.columns(3)
     entered_cnr = cols[0].file_uploader(".cnr", type=["txt", "cnr"])
-    entered_bintest = cols[1].file_uploader("bintest", type=["txt", "bintest"])
+    entered_bintest = cols[1].file_uploader("bintest", type=["txt", "tsv"])
     ngs_type = cols[2].radio("Choose NGS Type", ["WES", "WGS"])
 
-    # Determine reference files based on NGS type
-    if ngs_type == "WGS":
-        reference_path = resources_dir / "references/genome_cnv_reference_large.parquet"
-        reference_bintest_path = resources_dir / "references/genome_cnv_reference_bintest_large.parquet"
-    else:
-        reference_path = resources_dir / "references/exome_cnv_reference_large.parquet"
-        reference_bintest_path = resources_dir / "references/exome_cnv_reference_bintest_large.parquet"
+    reference_path = reference_files_dir / ("genome_cnv_reference_large.parquet" if ngs_type == "WGS" else "exome_cnv_reference_large.parquet")
+    reference_bintest_path = reference_files_dir / ("genome_cnv_reference_bintest_large.parquet" if ngs_type == "WGS" else "exome_cnv_reference_bintest_large.parquet")
 
+    sample_name = ""
+    reference_df = None
+    cnr_df = None
+    bintest_df = None
     if entered_cnr:
         sample_name = entered_cnr.name.split(".")[0]
+        cnr_df = pd.read_csv(entered_cnr, delimiter="\t")
         if igv_string:
             igv_string = igv_string.replace("samplename", sample_name)
+    if entered_bintest:
+        bintest_df = pd.read_csv(entered_bintest, delimiter="\t")
+    if reference_path.exists():
+        reference_df = pd.read_parquet(reference_path)
+    reference_bintest_df = pd.read_parquet(reference_bintest_path) if reference_bintest_path.exists() else pd.DataFrame()
 
     st.subheader("Configurations")
     st.markdown("Provide a sample name and define the number of consecutive exons to display (default value = 2).")
@@ -73,10 +112,10 @@ def main():
     st.sidebar.title("About")
     st.sidebar.markdown("This Streamlit web app enables you to visualize copy-number-variant data using dataframes and plots.")
 
-    st.sidebar.subheader("Candigene Selection")
-    candigene_options = sorted(os.listdir(candi_annotation_dir))
-    selected_candi = st.sidebar.radio("Select the desired candigene", candigene_options)
-    st.sidebar.write(selected_candi)
+    st.sidebar.subheader("Candidate Gene Selection")
+    candidate_options = sorted(os.listdir(candidate_list_dir)) if candidate_list_dir.exists() else []
+    selected_candidate = st.sidebar.radio("Select the desired candidate gene list", candidate_options)
+    st.sidebar.write(selected_candidate)
 
     st.subheader("Dataframe Visualization")
     with st.expander("Filter"):
@@ -99,31 +138,22 @@ def main():
         hom_del_selection = cols7[0].text_input("max_hom_del_freq", value="")
         dup_selection = cols7[1].text_input("max_dup_freq", value="")
 
-    list_of_possible_dataframes = ["total", "bintest", "hom_del", "total_candi", "bintest_candi", "consecutive_del", "consecutive_dup"]
+    list_of_possible_dataframes = ["total", "bintest", "hom_del", "total_candidate", "bintest_candidate", "consecutive_del", "consecutive_dup"]
     df_to_be_displayed = st.selectbox("Select dataframe to display", list_of_possible_dataframes)
 
-    # Load reference files
-    if reference_path.exists():
-        reference_df = pd.read_parquet(reference_path)
-
-    if entered_cnr:
-        cnr_df = pd.read_csv(entered_cnr, delimiter="\t")
-
-    if entered_bintest:
-        bintest_df = pd.read_csv(entered_bintest, delimiter="\t")
-
     if reference_df is not None and cnr_df is not None and bintest_df is not None:
-        cnv_visualizer_instance = visualizer.CNVVisualizer(reference_df, cnr_df, bintest_df)
-        omim_df, candi_df, cnr_db, bintest_db = cnv_visualizer_instance.format_df(
-            omim_annotation_path, candi_annotation_dir / selected_candi
+        cnv_visualizer_instance = CNVVisualizer(reference_df, cnr_df, bintest_df)
+        omim_df, candidate_df, cnr_db, bintest_db = cnv_visualizer_instance.format_df(
+            omim_annotation_file, os.path.join(candidate_list_dir, selected_candidate) if candidate_list_dir.exists() else None
         )
 
         call_df = reference_df[["gene", "exon", "het_del_frequency", "hom_del_frequency", "dup_frequency"]]
-        bintest_inhouse_df = pd.read_parquet(reference_bintest_path)
+        bintest_inhouse_df = reference_bintest_df if not reference_bintest_df.empty else pd.DataFrame()
 
         cnr_db = pd.merge(cnr_db, call_df, on=["gene", "exon"], how="left")
-        bintest_db = pd.merge(bintest_db, bintest_inhouse_df, on=["gene", "exon"], how="left")
-        bintest_db.fillna(0, inplace=True)
+        if not bintest_inhouse_df.empty:
+            bintest_db = pd.merge(bintest_db, bintest_inhouse_df, on=["gene", "exon"], how="left")
+            bintest_db = bintest_db.infer_objects().fillna(0)
 
         cnr_db_filtered = cnv_visualizer_instance.apply_filters(
             cnr_db, start_selection, end_selection, depth_selection, weight_selection,
@@ -145,8 +175,8 @@ def main():
             "total": cnr_db_filtered,
             "bintest": bintest_db,
             "hom_del": cnv_visualizer_instance.filter_for_deletions_hom(cnr_db_filtered),
-            "total_candi": cnv_visualizer_instance.filter_for_candi_cnvs(cnr_db_filtered, candi_df),
-            "bintest_candi": cnv_visualizer_instance.filter_for_candi_cnvs(bintest_db, candi_df),
+            "total_candidate": cnv_visualizer_instance.filter_for_candi_cnvs(cnr_db_filtered, candidate_df),
+            "bintest_candidate": cnv_visualizer_instance.filter_for_candi_cnvs(bintest_db, candidate_df),
             "consecutive_del": cnv_visualizer_instance.filter_for_consecutive_cnvs(
                 cnv_visualizer_instance.prepare_filter_for_consecutive_cnvs(
                     cnv_visualizer_instance.filter_for_deletions(cnr_db_filtered)
@@ -160,7 +190,7 @@ def main():
         }
 
         download_filter = display_mapping[df_to_be_displayed]
-        st.dataframe(display_mapping[df_to_be_displayed].style.pipe(styler.make_pretty) if df_to_be_displayed != "total" else display_mapping[df_to_be_displayed])
+        st.dataframe(display_mapping[df_to_be_displayed].style.pipe(make_pretty) if df_to_be_displayed != "total" else display_mapping[df_to_be_displayed])
 
         # Download buttons
         download_columns = st.columns(2)
@@ -174,8 +204,8 @@ def main():
             tables_to_export = [
                 cnr_db, bintest_db,
                 cnv_visualizer_instance.filter_for_deletions_hom(cnr_db),
-                cnv_visualizer_instance.filter_for_candi_cnvs(cnr_db, candi_df),
-                cnv_visualizer_instance.filter_for_candi_cnvs(bintest_db, candi_df),
+                cnv_visualizer_instance.filter_for_candi_cnvs(cnr_db, candidate_df),
+                cnv_visualizer_instance.filter_for_candi_cnvs(bintest_db, candidate_df),
                 cnv_visualizer_instance.filter_for_consecutive_cnvs(
                     cnv_visualizer_instance.prepare_filter_for_consecutive_cnvs(
                         cnv_visualizer_instance.filter_for_deletions(cnr_db)
@@ -187,14 +217,14 @@ def main():
                     ), "dup", entered_del_size, entered_dup_size
                 ),
             ]
-            table_exporter = exporter.CNVExporter()
+            table_exporter = CNVExporter()
             export_data = table_exporter.save_tables_as_excel(*tables_to_export)
             download_button_columns[0].download_button(label="Download", data=export_data, file_name=f"{sample_name}_df.xlsx")
         else:
             download_message_columns[0].write("Click button to prepare download")
 
         if download_preparator_filtered:
-            table_exporter = exporter.CNVExporter()
+            table_exporter = CNVExporter()
             export_data_filtered = table_exporter.save_filtered_table_as_excel(download_filter, df_to_be_displayed)
             download_button_columns[1].download_button(label="Download filtered", data=export_data_filtered, file_name=f"{sample_name}_filtered_df.xlsx")
         else:
@@ -205,7 +235,7 @@ def main():
     entered_gene = entered_gene[0].upper() if entered_gene else None
 
     if reference_df is not None and cnr_df is not None and bintest_df is not None and entered_gene:
-        gene_plotter = plotter.CNVPlotter()
+        gene_plotter = CNVPlotter()
         gene_plotter.plot_log2_for_gene_precomputed(entered_gene, cnr_db, reference_df, sample_name)
         gene_plotter.plot_depth_for_gene_precomputed(entered_gene, cnr_db, reference_df, sample_name)
 
@@ -273,15 +303,32 @@ def main():
         tsv_df["SV_chrom"] = pd.Categorical(tsv_df["SV_chrom"], categories=[str(i) for i in range(1, 23)] + ["X", "Y"])
         tsv_df.sort_values("SV_chrom", inplace=True)
         tsv_df.reset_index(drop=True, inplace=True)
-        filtered_tsv = helpers.filter_tsv(tsv_df, chromosome_list_cnv, cnv_type, acmg_class, entered_cnv_chrom, entered_cnv_type, entered_acmg_class)
+
+        # Fix ValueError for ACMG_class conversion using lambda
+        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(lambda x: int(x) if pd.notna(x) and x.isdigit() else None)
+        tsv_df = tsv_df.dropna(subset=["ACMG_class"]).astype({"ACMG_class": int})
+
+        filtered_tsv = filter_tsv(tsv_df, chromosome_list_cnv, cnv_type, acmg_class, entered_cnv_chrom, entered_cnv_type, entered_acmg_class)
         st.write(filtered_tsv)
 
         if st.button("Prepare for download of annotated tsv data"):
-            table_exporter = exporter.CNVExporter()
+            table_exporter = CNVExporter()
             to_be_exported = table_exporter.save_tables_as_excel_tsv(filtered_tsv)
             st.download_button(label="Download", data=to_be_exported, file_name=f"{sample_name}_annotated_df.xlsx")
         else:
             st.write("Click button to prepare download")
 
-if __name__=='__main__':
-    main()
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Run CNVizard Streamlit app.")
+    parser.add_argument("env", nargs='?', default=None, help="Path to the .env file.")
+    args = parser.parse_args()
+
+    st.set_page_config(layout="wide", page_title="CNVizard", page_icon="CNVizard.png")
+
+    if args.env:
+        main(args.env)
+    else:
+        env_file_path = load_and_select_env()
+        if env_file_path:
+            main(env_file_path)
