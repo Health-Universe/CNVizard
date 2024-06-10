@@ -116,13 +116,25 @@ class CNVVisualizer:
         """
         omim_df = pd.read_csv(omim_path, header=0, delimiter="\t")
         candi_df = pd.read_csv(selected_candi_path, header=None, names=["gen"], delimiter="\t")
+
+        # Check if 'gene' column exists in both DataFrames
+        if 'gene' not in self.cnr_db.columns:
+            st.error("The column 'gene' is missing from the CNR DataFrame.")
+            st.stop()
+
+        if 'gene' not in self.bintest_db.columns:
+            st.error("The column 'gene' is missing from the Bintest DataFrame.")
+            st.stop()
+
         self.cnr_db = self.explode_df(self.cnr_db)
         self.bintest_db = self.explode_df(self.bintest_db)
+
         self.cnr_db = self.prepare_cnv_table(self.cnr_db, omim_df)
         gene_size = self.cnr_db.groupby("gene")["gene"].size().reset_index(name="gene_size")
         self.cnr_db = pd.merge(self.cnr_db, gene_size, on="gene", how="left")
         self.bintest_db = self.prepare_cnv_table(self.bintest_db, omim_df)
         return omim_df, candi_df, self.cnr_db, self.bintest_db
+
     
     def filter_for_deletions_hom(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -225,38 +237,38 @@ class CNVVisualizer:
         Returns:
             pd.DataFrame: Filtered DataFrame for candigenes.
         """
-        df['in_candi'] = df.gene.isin(df2.gen)
-        df_filter_candi = df[(df['in_candi'] == True) & (df['call'] != 2)]
+        df['in_candidate_list'] = df.gene.isin(df2.gen)
+        df_filter_candi = df[(df['in_candidate_list'] == True) & (df['call'] != 2)]
         return df_filter_candi
 
-    def apply_filters(self, df: pd.DataFrame, start_selection: int, end_selection: int, depth_selection: float,
-                      weight_selection: float, chrom_selection: list, call_selection: list, log2_selection: float,
-                      gene_selection: list, chrom_list: list, call_list: list, gene_list: list,
-                      het_del_selection: float, hom_del_selection: float, dup_selection: float) -> pd.DataFrame:
+    def apply_filters(self, df: pd.DataFrame, start_selection: str, end_selection: str, depth_selection: str,
+                  weight_selection: str, chrom_selection: list, call_selection: list, log2_selection: str,
+                  gene_selection: list, chrom_list: list, call_list: list, gene_list: list,
+                  het_del_selection: str, hom_del_selection: str, dup_selection: str) -> pd.DataFrame:
         """
         Function which applies the predefined filters for the .cnr file.
 
         Args:
             df (pd.DataFrame): .cnr DataFrame
-            start_selection (int): Filter which defines a starting coordinates (only works if end coordinates are given) and only one chromosome is selected
-            end_selection (int): Filter which defines a end coordinates (only works if start coordinates are given) and only one chromosome is selected
-            depth_selection (float): Filter which defines a minimal depth 
-            weight_selection (float): Filter which defines a minimal weight 
+            start_selection (str): Filter which defines a starting coordinates (only works if end coordinates are given) and only one chromosome is selected
+            end_selection (str): Filter which defines a end coordinates (only works if start coordinates are given) and only one chromosome is selected
+            depth_selection (str): Filter which defines a minimal depth 
+            weight_selection (str): Filter which defines a minimal weight 
             chrom_selection (list): Filter which defines which chromosomes shall be displayed
             call_selection (list): Filter which defines which calls shall be displayed 
-            log2_selection (float): Filter which defines a minimal log2 
+            log2_selection (str): Filter which defines a minimal log2 
             gene_selection (list): Filter which genes shall be displayed
             chrom_list (list): Previously defined list with all chromosomes (used to negate an empty filter)
             gene_list (list): Previously defined list with all genes (used to negate an empty filter)
-            het_del_selection (float): Filter which defines a maximal heterozygous deletion frequency
-            hom_del_selection (float): Filter which defines a maximal homozygous deletion frequency
-            dup_selection (float): Filter which defines a maximal duplication frequency
+            het_del_selection (str): Filter which defines a maximal heterozygous deletion frequency
+            hom_del_selection (str): Filter which defines a maximal homozygous deletion frequency
+            dup_selection (str): Filter which defines a maximal duplication frequency
 
         Returns:
             pd.DataFrame: Filtered DataFrame.
         """
         skip_start_end = False
-        filtered_df = df
+        filtered_df = df.copy()
         filtered_df["chromosome"] = filtered_df["chromosome"].astype(str)
         filtered_df["call"] = filtered_df["call"].astype(int)
         filtered_df["gene"] = filtered_df["gene"].astype(str)
@@ -269,52 +281,81 @@ class CNVVisualizer:
         filtered_df["hom_del_frequency"] = filtered_df["hom_del_frequency"].astype(float)
         filtered_df["dup_frequency"] = filtered_df["dup_frequency"].astype(float)
 
-        if start_selection is None or start_selection == "" or end_selection is None or end_selection == "" or len(chrom_selection) > 1:
+        try:
+            if start_selection and end_selection and len(chrom_selection) == 1:
+                start_selection = int(start_selection)
+                end_selection = int(end_selection)
+            else:
+                skip_start_end = True
+        except ValueError:
+            st.warning("Invalid start or end selection. Must be integers.")
             skip_start_end = True
 
-        if chrom_selection is None or chrom_selection == []:
+        try:
+            depth_selection = float(depth_selection) if depth_selection else -10000.0
+        except ValueError:
+            st.warning("Invalid depth selection. Must be a float.")
+            depth_selection = -10000.0
+
+        try:
+            weight_selection = float(weight_selection) if weight_selection else -10000.0
+        except ValueError:
+            st.warning("Invalid weight selection. Must be a float.")
+            weight_selection = -10000.0
+
+        try:
+            log2_selection = float(log2_selection) if log2_selection else -10000.0
+        except ValueError:
+            st.warning("Invalid log2 selection. Must be a float.")
+            log2_selection = -10000.0
+
+        try:
+            het_del_selection = float(het_del_selection) if het_del_selection else 1.0
+        except ValueError:
+            st.warning("Invalid heterozygous deletion frequency. Must be a float.")
+            het_del_selection = 1.0
+
+        try:
+            hom_del_selection = float(hom_del_selection) if hom_del_selection else 1.0
+        except ValueError:
+            st.warning("Invalid homozygous deletion frequency. Must be a float.")
+            hom_del_selection = 1.0
+
+        try:
+            dup_selection = float(dup_selection) if dup_selection else 1.0
+        except ValueError:
+            st.warning("Invalid duplication frequency. Must be a float.")
+            dup_selection = 1.0
+
+        if chrom_selection is None or not chrom_selection:
             chrom_selection = chrom_list
-        if call_selection is None or call_selection == []:
+        if call_selection is None or not call_selection:
             call_selection = call_list
-        if gene_selection is None or gene_selection == []:
+        if gene_selection is None or not gene_selection:
             gene_selection = gene_list
-        if depth_selection is None or depth_selection == "":
-            depth_selection = float(-10000)
-        if weight_selection is None or weight_selection == "":
-            weight_selection = float(-10000)
-        if log2_selection is None or log2_selection == "":
-            log2_selection = float(-10000)
-        if het_del_selection is None or het_del_selection == "":
-            het_del_selection = float(1)
-        if hom_del_selection is None or hom_del_selection == "":
-            hom_del_selection = float(1)
-        if dup_selection is None or dup_selection == "":
-            dup_selection = float(1)
 
         if skip_start_end:
             filtered_df = filtered_df[filtered_df["chromosome"].isin(chrom_selection)]
-            filtered_df = filtered_df[filtered_df["call"].isin(call_selection)]
-            filtered_df = filtered_df[filtered_df["gene"].isin(gene_selection)]
-            filtered_df = filtered_df[filtered_df["depth"] >= depth_selection]
-            filtered_df = filtered_df[filtered_df["weight"] >= weight_selection]
-            filtered_df = filtered_df[filtered_df["log2"] >= log2_selection]
-            filtered_df = filtered_df[filtered_df["het_del_frequency"] <= het_del_selection]
-            filtered_df = filtered_df[filtered_df["hom_del_frequency"] <= hom_del_selection]
-            filtered_df = filtered_df[filtered_df["dup_frequency"] <= dup_selection]
         else:
-            filtered_df = filtered_df[filtered_df["chromosome"].isin(chrom_selection)]
-            filtered_df = filtered_df[filtered_df["call"].isin(call_selection)]
-            filtered_df = filtered_df[filtered_df["gene"].isin(gene_selection)]
-            filtered_df = filtered_df[filtered_df["depth"] >= depth_selection]
-            filtered_df = filtered_df[filtered_df["weight"] >= weight_selection]
-            filtered_df = filtered_df[filtered_df["log2"] >= log2_selection]
-            filtered_df = filtered_df[filtered_df["start"] >= start_selection]
-            filtered_df = filtered_df[filtered_df["end"] <= end_selection]
-            filtered_df = filtered_df[filtered_df["het_del_frequency"] <= het_del_selection]
-            filtered_df = filtered_df[filtered_df["hom_del_frequency"] <= hom_del_selection]
-            filtered_df = filtered_df[filtered_df["dup_frequency"] <= dup_selection]
+            filtered_df = filtered_df[
+                (filtered_df["chromosome"].isin(chrom_selection)) &
+                (filtered_df["start"] >= start_selection) &
+                (filtered_df["end"] <= end_selection)
+            ]
+
+        filtered_df = filtered_df[
+            (filtered_df["call"].isin(call_selection)) &
+            (filtered_df["gene"].isin(gene_selection)) &
+            (filtered_df["depth"] >= depth_selection) &
+            (filtered_df["weight"] >= weight_selection) &
+            (filtered_df["log2"] >= log2_selection) &
+            (filtered_df["het_del_frequency"] <= het_del_selection) &
+            (filtered_df["hom_del_frequency"] <= hom_del_selection) &
+            (filtered_df["dup_frequency"] <= dup_selection)
+        ]
 
         return filtered_df
+
 
     def apply_trio_filters(self, trio_df: pd.DataFrame, selection_index: list, selection_father: list, selection_mother: list, call_list: list) -> pd.DataFrame:
         """

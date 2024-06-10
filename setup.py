@@ -13,6 +13,7 @@ setup(
         "pandas",
         "numpy",
         "pyarrow",
+        "CNVkit",
         "fastparquet",
         "plotly",
         "python-dotenv"

@@ -5,9 +5,56 @@ from pathlib import Path
 import dotenv
 import argparse
 from cnvizard import make_pretty, CNVExporter, CNVPlotter, filter_tsv, CNVVisualizer, prepare_cnv_table, explode_cnv_table
-    
+
+def validate_env_file(env_file):
+    """
+    Validates the contents of an environment file.
+
+    Args:
+        env_file (str): Path to the environment file.
+
+    Returns:
+        tuple: A tuple containing two lists:
+            - missing_keys (list): List of missing keys.
+            - invalid_paths (list): List of invalid paths.
+    """
+    required_keys = [
+        "OMIM_ANNOTATION_PATH",
+        "CANDIDATE_LIST_DIR",
+        "REFERENCE_FILES_DIR",
+        "ANNOTS_SV_FORMAT_PATH"
+    ]
+    optional_keys = [
+        "APPSETTING_IGV_OUTLINK"
+    ]
+    missing_keys = []
+    invalid_paths = []
+
+    with open(env_file, "r") as file:
+        lines = file.readlines()
+        env_dict = dict(line.strip().split('=') for line in lines if '=' in line)
+
+    for key in required_keys:
+        if key not in env_dict:
+            missing_keys.append(key)
+        elif not Path(env_dict[key]).exists():
+            invalid_paths.append(env_dict[key])
+
+    for key in optional_keys:
+        if key in env_dict and not Path(env_dict[key]).exists():
+            invalid_paths.append(env_dict[key])
+
+    return missing_keys, invalid_paths
 
 def load_and_select_env():
+    """
+    Streamlit function to load or create an environment file.
+
+    This function allows users to upload an existing environment file or create a new one by providing necessary paths and settings.
+
+    Returns:
+        str: Path to the loaded or created environment file, or None if there was an error.
+    """
     st.title("CNVizard Environment Selector")
 
     st.markdown("""
@@ -17,31 +64,85 @@ def load_and_select_env():
     uploaded_env_file = st.file_uploader("Upload environment file")
 
     if uploaded_env_file:
-        env_file =  uploaded_env_file.name
-        with open(env_file, "wb") as file:
-            file.write(uploaded_env_file.getbuffer())
-        return env_file
+        try:
+            env_file = uploaded_env_file.name
+            with open(env_file, "wb") as file:
+                file.write(uploaded_env_file.getbuffer())
+
+            missing_keys, invalid_paths = validate_env_file(env_file)
+            if missing_keys or invalid_paths:
+                error_message = "Error in environment file:\n"
+                if missing_keys:
+                    error_message += f"Missing keys: {', '.join(missing_keys)}\n"
+                if invalid_paths:
+                    error_message += f"Invalid paths: {', '.join(invalid_paths)}"
+                raise ValueError(error_message)
+
+            dotenv.load_dotenv(env_file)
+            st.success(f"Loaded environment file: {env_file}")
+            return env_file
+        except Exception as e:
+            st.error(f"Error loading environment file: {e}")
+            return None
 
     if st.button("Create new `.env` file"):
+        st.session_state.create_env = True
+
+    if st.session_state.get("create_env", False):
         st.markdown("#### Provide the paths for the new `.env` file")
         env_output_path = st.text_input("Output path for new environment file:", "default.env")
         
-        omim_annotation_path = st.text_input("OMIM annotation path:", "./resources/omim/omim.txt")
+        omim_annotation_path = st.text_input("OMIM annotation path:", "./resources/omim.txt")
         candidate_list_dir = st.text_input("Candidate list directory:", "./resources/candidate_lists")
         reference_files_dir = st.text_input("Reference files directory:", "./resources/references")
         annotsv_format_path = st.text_input("Annotsv format path:", "./resources/annotsv_format.txt")
+        igv_outlink = st.text_input("IGV outlink (optional):", "")
 
         if st.button("Save new `.env` file"):
-            env_file = env_output_path if env_output_path else ".env"
-            with open(env_file, "w") as file:
-                file.write(f"OMIM_ANNOTATION_PATH={omim_annotation_path}\n")
-                file.write(f"CANDIDATE_LIST_DIR={candidate_list_dir}\n")
-                file.write(f"REFERENCE_FILES_DIR={reference_files_dir}\n")
-                file.write(f"ANNOTS_SV_FORMAT_PATH={annotsv_format_path}\n")
-            st.success(f"New `.env` file created: `{env_file}`")
-            return env_file
+            try:
+                paths = {
+                    "OMIM_ANNOTATION_PATH": omim_annotation_path,
+                    "CANDIDATE_LIST_DIR": candidate_list_dir,
+                    "REFERENCE_FILES_DIR": reference_files_dir,
+                    "ANNOTS_SV_FORMAT_PATH": annotsv_format_path,
+                }
+                if igv_outlink:
+                    paths["APPSETTING_IGV_OUTLINK"] = igv_outlink
+
+                invalid_paths = [path for path in paths.values() if not Path(path).exists()]
+                if invalid_paths:
+                    raise ValueError(f"Invalid paths: {', '.join(invalid_paths)}")
+
+                env_file = env_output_path if env_output_path else ".env"
+                with open(env_file, "w") as file:
+                    for key, value in paths.items():
+                        file.write(f"{key}={value}\n")
+                st.success(f"New `.env` file created: `{env_file}`")
+                st.session_state.create_env = False
+                return env_file
+            except Exception as e:
+                st.error(f"Error saving environment file: {e}")
+                return None
 
     return None
+
+def prepare_filter_for_consecutive_cnvs(self, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Function which is used to filter for consecutively deleted/duplicated exons.
+
+    Args:
+        df (pd.DataFrame): .cnr DataFrame
+
+    Returns:
+        pd.DataFrame: .cnr DataFrame filtered for consecutively deleted/duplicated exons.
+    """
+    df = df.copy()  # Create a copy to avoid SettingWithCopyWarning
+    df['difference_previous'] = df.groupby('gene')['exon'].diff()
+    df['difference_previous'] = df['difference_previous'].fillna(method='bfill')
+    df['difference_next'] = df.groupby('gene')['exon'].diff(periods=-1)
+    df['difference_next'] = df['difference_next'].fillna(method='ffill')
+    return df
+
 
 def main(env_file_path):
     if env_file_path is None:
@@ -92,14 +193,30 @@ def main(env_file_path):
     bintest_df = None
     if entered_cnr:
         sample_name = entered_cnr.name.split(".")[0]
-        cnr_df = pd.read_csv(entered_cnr, delimiter="\t")
+        try:
+            cnr_df = pd.read_csv(entered_cnr, delimiter="\t")
+        except Exception as e:
+            st.error(f"Error reading .cnr file: {e}")
+            cnr_df = None
         if igv_string:
             igv_string = igv_string.replace("samplename", sample_name)
     if entered_bintest:
-        bintest_df = pd.read_csv(entered_bintest, delimiter="\t")
+        try:
+            bintest_df = pd.read_csv(entered_bintest, delimiter="\t")
+        except Exception as e:
+            st.error(f"Error reading bintest file: {e}")
+            bintest_df = None
     if reference_path.exists():
-        reference_df = pd.read_parquet(reference_path)
-    reference_bintest_df = pd.read_parquet(reference_bintest_path) if reference_bintest_path.exists() else pd.DataFrame()
+        try:
+            reference_df = pd.read_parquet(reference_path)
+        except Exception as e:
+            st.error(f"Error reading reference file: {e}")
+            reference_df = None
+    try:
+        reference_bintest_df = pd.read_parquet(reference_bintest_path) if reference_bintest_path.exists() else pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error reading reference bintest file: {e}")
+        reference_bintest_df = pd.DataFrame()
 
     st.subheader("Configurations")
     st.markdown("Provide a sample name and define the number of consecutive exons to display (default value = 2).")
@@ -251,8 +368,12 @@ def main(env_file_path):
     mother_cnr = cols_trio[1].file_uploader("Mother .cnr", type=["txt", "cnr"])
 
     if reference_df is not None and cnr_df is not None and bintest_df is not None and father_cnr and mother_cnr:
-        father_cnr_df = cnv_visualizer_instance.prepare_parent_cnv(pd.read_csv(father_cnr, delimiter="\t"))
-        mother_cnr_df = cnv_visualizer_instance.prepare_parent_cnv(pd.read_csv(mother_cnr, delimiter="\t"))
+        try:
+            father_cnr_df = cnv_visualizer_instance.prepare_parent_cnv(pd.read_csv(father_cnr, delimiter="\t"))
+            mother_cnr_df = cnv_visualizer_instance.prepare_parent_cnv(pd.read_csv(mother_cnr, delimiter="\t"))
+        except Exception as e:
+            st.error(f"Error reading parent .cnr files: {e}")
+            st.stop()
 
         father_cnr_df = father_cnr_df.drop(["chromosome", "start", "end"], axis=1).rename(
             columns={col: f"{col}_f" for col in father_cnr_df.columns if col not in ["gene", "exon"]}).round(2)
@@ -296,19 +417,28 @@ def main(env_file_path):
         entered_acmg_class = cols6[2].multiselect("ACMG_Class", acmg_class)
 
     if entered_tsv_file:
-        tsv_df = pd.read_csv(entered_tsv_file, delimiter="\t")
+        try:
+            tsv_df = pd.read_csv(entered_tsv_file, delimiter="\t")
+        except Exception as e:
+            st.error(f"Error reading .tsv file: {e}")
+            st.stop()
+
         with open(annotsv_format_path, "r") as column_file:
             columns_to_keep = [line.strip() for line in column_file]
+
         tsv_df = tsv_df[columns_to_keep]
-        tsv_df["SV_chrom"] = pd.Categorical(tsv_df["SV_chrom"], categories=[str(i) for i in range(1, 23)] + ["X", "Y"])
-        tsv_df.sort_values("SV_chrom", inplace=True)
-        tsv_df.reset_index(drop=True, inplace=True)
 
         # Fix ValueError for ACMG_class conversion using lambda
-        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(lambda x: int(x) if pd.notna(x) and x.isdigit() else None)
+        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(lambda x: int(x.split('=')[-1]) if isinstance(x, str) and 'full=' in x else x)
         tsv_df = tsv_df.dropna(subset=["ACMG_class"]).astype({"ACMG_class": int})
 
-        filtered_tsv = filter_tsv(tsv_df, chromosome_list_cnv, cnv_type, acmg_class, entered_cnv_chrom, entered_cnv_type, entered_acmg_class)
+        # Debugging output
+        st.write("Reduced AnnotSV DataFrame:")
+        st.write(tsv_df.head())
+
+        filtered_tsv = filter_tsv(tsv_df,chromosome_list_cnv,cnv_type,acmg_class,entered_cnv_chrom,entered_cnv_type,entered_acmg_class)
+        filtered_tsv = filtered_tsv.fillna(".")
+        st.write("Filtered AnnotSV DataFrame:")
         st.write(filtered_tsv)
 
         if st.button("Prepare for download of annotated tsv data"):
@@ -327,7 +457,6 @@ if __name__ == '__main__':
     st.set_page_config(layout="wide", page_title="CNVizard", page_icon="CNVizard.png")
 
     if args.env:
-        main(args.env)
     else:
         env_file_path = load_and_select_env()
         if env_file_path:
