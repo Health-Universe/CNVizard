@@ -457,6 +457,7 @@ if __name__ == '__main__':
     st.set_page_config(layout="wide", page_title="CNVizard", page_icon="CNVizard.png")
 
     if args.env:
+        main(args.env)
     else:
         env_file_path = load_and_select_env()
         if env_file_path:
