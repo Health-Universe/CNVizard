@@ -428,13 +428,22 @@ def main(env_file_path):
 
         tsv_df = tsv_df[columns_to_keep]
 
-        # Fix ValueError for ACMG_class conversion using lambda
-        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(lambda x: int(x.split('=')[-1]) if isinstance(x, str) and 'full=' in x else x)
-        tsv_df = tsv_df.dropna(subset=["ACMG_class"]).astype({"ACMG_class": int})
+        # Fix ValueErrors and ensure ACMG_class is treated as int
+        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(
+            lambda x: int(x.split('=')[-1]) if isinstance(x, str) and 'full=' in x else (
+                int(x) if isinstance(x, str) and x.isdigit() else -1
+            )
+        )
+        # Remove rows with -1 in ACMG_class after conversion
+        tsv_df = tsv_df[tsv_df["ACMG_class"] != -1]
 
-        # Debugging output
-        st.write("Reduced AnnotSV DataFrame:")
-        st.write(tsv_df.head())
+        # Ensure ACMG_class is treated as int after conversion
+        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].astype(int)
+
+        # Convert AnnotSV_ranking_score to numeric, handle errors by converting invalid values to NaN
+        tsv_df["AnnotSV_ranking_score"] = tsv_df["AnnotSV_ranking_score"].apply(
+            lambda x: pd.to_numeric(x, errors='coerce') if isinstance(x, str) else float('nan') if x == '.' else x
+        )
 
         filtered_tsv = filter_tsv(tsv_df,chromosome_list_cnv,cnv_type,acmg_class,entered_cnv_chrom,entered_cnv_type,entered_acmg_class)
         filtered_tsv = filtered_tsv.fillna(".")
