@@ -1,10 +1,14 @@
-import streamlit as st
-import pandas as pd
+
 import os
-from pathlib import Path
 import dotenv
 import argparse
+import cnvlib 
+import streamlit as st
+import pandas as pd
 from cnvizard import make_pretty, CNVExporter, CNVPlotter, filter_tsv, CNVVisualizer, prepare_cnv_table, explode_cnv_table
+from pathlib import Path
+
+
 
 def validate_env_file(env_file):
     """
@@ -400,7 +404,7 @@ def main(env_file_path):
     if entered_cns and entered_cnr_new:
         input_cnr = cnvlib.read(entered_cnr_new)
         input_cns = cnvlib.read(entered_cns)
-        fig_scatter = do_scatter(input_cnr, segments=input_cns, y_min=-2, y_max=2, show_range=None if selected_scatter == "All" else selected_scatter)
+        fig_scatter = cnvlib.do_scatter(input_cnr, segments=input_cns, y_min=-2, y_max=2, show_range=None if selected_scatter == "All" else selected_scatter)
         fig_scatter.set_figwidth(12)
         st.pyplot(fig_scatter)
 
