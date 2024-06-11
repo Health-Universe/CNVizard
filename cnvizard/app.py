@@ -1,4 +1,9 @@
-
+"""
+File which is used to run the CNVizard app
+@author: Jeremias Krause , Carlos Classen, Matthias Begemann. Florian Kraft
+@company: UKA Aachen (RWTH)
+@mail: jerkrause@ukaachen.de
+"""
 import os
 import dotenv
 import argparse
@@ -379,10 +384,12 @@ def main(env_file_path):
             st.error(f"Error reading parent .cnr files: {e}")
             st.stop()
 
-        father_cnr_df = father_cnr_df.drop(["chromosome", "start", "end"], axis=1).rename(
-            columns={col: f"{col}_f" for col in father_cnr_df.columns if col not in ["gene", "exon"]}).round(2)
-        mother_cnr_df = mother_cnr_df.drop(["chromosome", "start", "end"], axis=1).rename(
-            columns={col: f"{col}_m" for col in mother_cnr_df.columns if col not in ["gene", "exon"]}).round(2)
+        father_cnr_df = father_cnr_df.drop(["chromosome", "start", "end"], axis=1)
+        father_cnr_df = father_cnr_df.rename(columns={"gene": "gene_f", "exon": "exon_f", "depth": "depth_f",
+                                                  "weight": "weight_f", "call": "call_f", "log2": "log2_f", "squaredvalue": "squaredvalue_f"})
+        mother_cnr_df = mother_cnr_df.drop(["chromosome", "start", "end"], axis=1)
+        mother_cnr_df = mother_cnr_df.rename(columns={"gene": "gene_m", "exon": "exon_m", "depth": "depth_m",
+                                                  "weight": "weight_m", "call": "call_m", "log2": "log2_m", "squaredvalue": "squaredvalue_m"})
 
         trio_cnr_df = cnr_db.merge(father_cnr_df, left_on=["gene", "exon"], right_on=["gene_f", "exon_f"], how="left").merge(
             mother_cnr_df, left_on=["gene", "exon"], right_on=["gene_m", "exon_m"], how="left")
@@ -399,7 +406,8 @@ def main(env_file_path):
     entered_cnr_new = cols_cns_upload[1].file_uploader(".cnr file", type=["txt", "cnr"])
 
     scatter_options = chrom_list + ["All"]
-    selected_scatter = st.radio("Select chromosome or all", scatter_options)
+    with st.expander("Select chromosome"):
+        selected_scatter = st.radio("Select chromosome or all", scatter_options)
 
     if entered_cns and entered_cnr_new:
         input_cnr = cnvlib.read(entered_cnr_new)
