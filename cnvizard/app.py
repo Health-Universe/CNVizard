@@ -451,11 +451,6 @@ def main(env_file_path):
                 int(x) if isinstance(x, str) and x.isdigit() else -1
             )
         )
-        # Remove rows with -1 in ACMG_class after conversion
-        tsv_df = tsv_df[tsv_df["ACMG_class"] != -1]
-
-        # Ensure ACMG_class is treated as int after conversion
-        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].astype(int)
 
         # Convert AnnotSV_ranking_score to numeric, handle errors by converting invalid values to NaN
         tsv_df["AnnotSV_ranking_score"] = tsv_df["AnnotSV_ranking_score"].apply(
@@ -463,7 +458,6 @@ def main(env_file_path):
         )
 
         filtered_tsv = filter_tsv(tsv_df,chromosome_list_cnv,cnv_type,acmg_class,entered_cnv_chrom,entered_cnv_type,entered_acmg_class)
-        filtered_tsv = filtered_tsv.fillna(".")
         st.write("Filtered AnnotSV DataFrame:")
         st.write(filtered_tsv)
 

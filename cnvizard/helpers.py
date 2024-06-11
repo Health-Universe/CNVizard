@@ -8,7 +8,7 @@ File which contains little helpers of the CNVizard
 import pandas as pd
 import streamlit as st
 
-def filter_tsv(tsv: pd.DataFrame, chromosome_list_cnv: list, cnv_type: list, acmg_class: list, entered_cnv_chrom: list, entered_cnv_type: list, entered_acmg_class: list) -> pd.DataFrame:
+def filter_tsv(tsv: pd.DataFrame, chromosome_list_cnv: list, cnv_type: list, acmg_class: list, entered_cnv_chrom: list, entered_cnv_type: list, entered_acmg_class: list):
     """
     Function which applies previously defined filters on the .tsv DataFrame.
 
