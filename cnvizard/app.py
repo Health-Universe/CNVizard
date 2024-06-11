@@ -99,7 +99,8 @@ def load_and_select_env():
 
     if st.session_state.get("create_env", False):
         st.markdown("#### Provide the paths for the new `.env` file")
-        env_output_path = st.text_input("Output path for new environment file:", "default.env")
+        #env_output_path = st.text_input("Output path for new environment file:", "default.env")
+        env_output_path = str(current_working_dir) + "default.env"
         
         omim_annotation_path = st.text_input("OMIM annotation path:", "./resources/omim.txt")
         candidate_list_dir = st.text_input("Candidate list directory:", "./resources/candidate_lists")
@@ -176,6 +177,10 @@ def main(env_file_path):
     # Streamlit App Title
     st.title("CNVizard")
     st.markdown("This is a Streamlit web app providing analysis tools for genetic copy number variants.")
+
+    #Expander to edit env_file 
+    with st.expander("change_env_file"):
+        load_and_select_env()
 
     # File Uploads Section
     st.subheader("Upload")
@@ -474,12 +479,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run CNVizard Streamlit app.")
     parser.add_argument("env", nargs='?', default=None, help="Path to the .env file.")
     args = parser.parse_args()
+    current_working_dir = Path.cwd()
 
     st.set_page_config(layout="wide", page_title="CNVizard", page_icon="CNVizard.png")
 
     if args.env:
         main(args.env)
     else:
-        env_file_path = load_and_select_env()
+        env_file_path = str(current_working_dir) + "default.env"
         if env_file_path:
             main(env_file_path)
