@@ -1,4 +1,9 @@
-
+"""
+File which is used to run the CNVizard app
+@author: Jeremias Krause , Carlos Classen, Matthias Begemann. Florian Kraft
+@company: UKA Aachen (RWTH)
+@mail: jerkrause@ukaachen.de
+"""
 import os
 import dotenv
 import argparse
@@ -94,7 +99,8 @@ def load_and_select_env():
 
     if st.session_state.get("create_env", False):
         st.markdown("#### Provide the paths for the new `.env` file")
-        env_output_path = st.text_input("Output path for new environment file:", "default.env")
+        #env_output_path = st.text_input("Output path for new environment file:", "default.env")
+        env_output_path = str(current_working_dir) + "default.env"
         
         omim_annotation_path = st.text_input("OMIM annotation path:", "./resources/omim.txt")
         candidate_list_dir = st.text_input("Candidate list directory:", "./resources/candidate_lists")
@@ -171,6 +177,10 @@ def main(env_file_path):
     # Streamlit App Title
     st.title("CNVizard")
     st.markdown("This is a Streamlit web app providing analysis tools for genetic copy number variants.")
+
+    #Expander to edit env_file 
+    with st.expander("change_env_file"):
+        load_and_select_env()
 
     # File Uploads Section
     st.subheader("Upload")
@@ -379,10 +389,12 @@ def main(env_file_path):
             st.error(f"Error reading parent .cnr files: {e}")
             st.stop()
 
-        father_cnr_df = father_cnr_df.drop(["chromosome", "start", "end"], axis=1).rename(
-            columns={col: f"{col}_f" for col in father_cnr_df.columns if col not in ["gene", "exon"]}).round(2)
-        mother_cnr_df = mother_cnr_df.drop(["chromosome", "start", "end"], axis=1).rename(
-            columns={col: f"{col}_m" for col in mother_cnr_df.columns if col not in ["gene", "exon"]}).round(2)
+        father_cnr_df = father_cnr_df.drop(["chromosome", "start", "end"], axis=1)
+        father_cnr_df = father_cnr_df.rename(columns={"gene": "gene_f", "exon": "exon_f", "depth": "depth_f",
+                                                  "weight": "weight_f", "call": "call_f", "log2": "log2_f", "squaredvalue": "squaredvalue_f"})
+        mother_cnr_df = mother_cnr_df.drop(["chromosome", "start", "end"], axis=1)
+        mother_cnr_df = mother_cnr_df.rename(columns={"gene": "gene_m", "exon": "exon_m", "depth": "depth_m",
+                                                  "weight": "weight_m", "call": "call_m", "log2": "log2_m", "squaredvalue": "squaredvalue_m"})
 
         trio_cnr_df = cnr_db.merge(father_cnr_df, left_on=["gene", "exon"], right_on=["gene_f", "exon_f"], how="left").merge(
             mother_cnr_df, left_on=["gene", "exon"], right_on=["gene_m", "exon_m"], how="left")
@@ -399,7 +411,8 @@ def main(env_file_path):
     entered_cnr_new = cols_cns_upload[1].file_uploader(".cnr file", type=["txt", "cnr"])
 
     scatter_options = chrom_list + ["All"]
-    selected_scatter = st.radio("Select chromosome or all", scatter_options)
+    with st.expander("Select chromosome"):
+        selected_scatter = st.radio("Select chromosome or all", scatter_options)
 
     if entered_cns and entered_cnr_new:
         input_cnr = cnvlib.read(entered_cnr_new)
@@ -433,24 +446,18 @@ def main(env_file_path):
         tsv_df = tsv_df[columns_to_keep]
 
         # Fix ValueErrors and ensure ACMG_class is treated as int
-        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(
-            lambda x: int(x.split('=')[-1]) if isinstance(x, str) and 'full=' in x else (
-                int(x) if isinstance(x, str) and x.isdigit() else -1
-            )
-        )
-        # Remove rows with -1 in ACMG_class after conversion
-        tsv_df = tsv_df[tsv_df["ACMG_class"] != -1]
-
-        # Ensure ACMG_class is treated as int after conversion
-        tsv_df["ACMG_class"] = tsv_df["ACMG_class"].astype(int)
+        #tsv_df["ACMG_class"] = tsv_df["ACMG_class"].apply(
+        #    lambda x: int(x.split('=')[-1]) if isinstance(x, str) and 'full=' in x else (
+        #        int(x) if isinstance(x, str) and x.isdigit() else -1
+        #    )
+        #)
 
         # Convert AnnotSV_ranking_score to numeric, handle errors by converting invalid values to NaN
-        tsv_df["AnnotSV_ranking_score"] = tsv_df["AnnotSV_ranking_score"].apply(
-            lambda x: pd.to_numeric(x, errors='coerce') if isinstance(x, str) else float('nan') if x == '.' else x
-        )
+        #tsv_df["AnnotSV_ranking_score"] = tsv_df["AnnotSV_ranking_score"].apply(
+        #    lambda x: pd.to_numeric(x, errors='coerce') if isinstance(x, str) else float('nan') if x == '.' else x
+        #)
 
         filtered_tsv = filter_tsv(tsv_df,chromosome_list_cnv,cnv_type,acmg_class,entered_cnv_chrom,entered_cnv_type,entered_acmg_class)
-        filtered_tsv = filtered_tsv.fillna(".")
         st.write("Filtered AnnotSV DataFrame:")
         st.write(filtered_tsv)
 
@@ -466,12 +473,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run CNVizard Streamlit app.")
     parser.add_argument("env", nargs='?', default=None, help="Path to the .env file.")
     args = parser.parse_args()
+    current_working_dir = Path.cwd()
 
     st.set_page_config(layout="wide", page_title="CNVizard", page_icon="CNVizard.png")
 
     if args.env:
         main(args.env)
     else:
-        env_file_path = load_and_select_env()
+        env_file_path = str(current_working_dir) + "default.env"
         if env_file_path:
             main(env_file_path)

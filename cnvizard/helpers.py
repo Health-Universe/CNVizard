@@ -8,7 +8,7 @@ File which contains little helpers of the CNVizard
 import pandas as pd
 import streamlit as st
 
-def filter_tsv(tsv: pd.DataFrame, chromosome_list_cnv: list, cnv_type: list, acmg_class: list, entered_cnv_chrom: list, entered_cnv_type: list, entered_acmg_class: list) -> pd.DataFrame:
+def filter_tsv(tsv: pd.DataFrame, chromosome_list_cnv: list, cnv_type: list, acmg_class: list, entered_cnv_chrom: list, entered_cnv_type: list, entered_acmg_class: list):
     """
     Function which applies previously defined filters on the .tsv DataFrame.
 
@@ -25,6 +25,12 @@ def filter_tsv(tsv: pd.DataFrame, chromosome_list_cnv: list, cnv_type: list, acm
         pd.DataFrame: Filtered .tsv DataFrame
     """
     #Perform casts to ensure the dataframe columns contain the correct types
+    #This cast is performed to ensure compatibility with different AnnotSV versions
+    tsv["ACMG_class"] = tsv["ACMG_class"].astype(str)
+    tsv_with_equal = tsv[(tsv["ACMG_class"].str.contains("="))]
+    tsv_with_equal["ACMG_class"] = tsv_with_equal["ACMG_class"].str.split("=").str[1]
+    tsv_without_equal = tsv[~(tsv["ACMG_class"].str.contains("="))]
+    tsv = pd.concat([tsv_without_equal,tsv_with_equal]).reset_index(drop=True)
     tsv["SV_chrom"] = tsv["SV_chrom"].astype(str)
     tsv["SV_type"] = tsv["SV_type"].astype(str)
     tsv["ACMG_class"] = tsv["ACMG_class"].astype(int)
