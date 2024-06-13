@@ -1,7 +1,7 @@
 # CNVizard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Streamlit](https://img.shields.io/badge/Streamlit-0.84.2-brightgreen.svg)](https://streamlit.io/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.35.0-brightgreen.svg)](https://streamlit.io/)
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 
 CNVizard is a Streamlit-based application designed for the visualization and analysis of germline copy number variants (CNVs). This tool provides comprehensive features to help researchers and clinicians analyze genetic data with ease.
@@ -17,26 +17,21 @@ CNVizard is a Streamlit-based application designed for the visualization and ana
 ## Setup
 
 ### Mandatory Setup
+1. **Clone this repository and change directory:**
+   ```sh
+   git clone https://github.com/IHGGM-Aachen/CNVizard
+   cd CNVizard
+   ```
 
-1. **Create a virtual environment and activate it:**
+2. **Create a virtual environment and activate it:**
    ```sh
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-2. **Navigate into the CNVizard folder:**
-   ```sh
-   cd CNVizard
-   ```
-
-3. **Install the required dependencies:**
-   ```sh
-   pip install -r requirements.txt
-   ```
-
 4. **Install the CNVizard:**
    ```sh
-   pip install -e . 
+   pip install -e .
    ```
 
 5. **Start the application with optionally giving a path to an environment file:**
