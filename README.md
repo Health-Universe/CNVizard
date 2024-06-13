@@ -11,7 +11,7 @@ CNVizard is a Streamlit-based application designed for the visualization and ana
   - [Mandatory Setup](#mandatory-setup)
   - [Optional Setup](#optional-setup)
 - [Usage](#usage)
-- [Application Structure](#application-structure)
+- [Creating References](#creating-references)
 - [License](#license)
 
 ## Setup
@@ -39,7 +39,7 @@ CNVizard is a Streamlit-based application designed for the visualization and ana
    pip install -e . 
    ```
 
-5. **Start the application with optinally giving a path to an environment file:**
+5. **Start the application with optionally giving a path to an environment file:**
    ```sh
    streamlit run cnvizard/app.py [ENV_FILE]
    ```
@@ -58,19 +58,19 @@ CNVizard is a Streamlit-based application designed for the visualization and ana
      ```
 
 2. **Change the AnnotSV table format:**
-   - Navigate to `/CNVizard/resources/annotsv_format.txt`.
+   - Navigate to `resources/annotsv_format.txt`.
    - Modify the standard column names as needed.
 
 3. **Add/Remove a panel-list:**
-   - Navigate to `/CNVizard/resources/candidate_lists/`.
+   - Navigate to `resources/candidate_lists/`.
    - Add or remove new panel `.txt` files.
 
 4. **Modify OMIM List:**
-   - Navigate to `/CNVizard/resources/omim.txt`.
+   - Navigate to `resources/omim.txt`.
    - Modify the `.txt` file as needed.
 
 5. **Change Reference List:**
-   - Navigate to `/CNVizard/resources/references/`.
+   - Navigate to `resources/references/`.
    - Replace `bintest_ref.parquet`, `total_ref.parquet`, or other reference files as needed.
 
 ## Usage
@@ -95,38 +95,73 @@ CNVizard is a Streamlit-based application designed for the visualization and ana
    - View filtered dataframes and plots.
    - Download prepared data in Excel format for further analysis.
 
-## Application Structure
+## Creating References
 
-```bash
-CNVizard/
-├── cnvizard/
-│   ├── app.py                     # Main application script
-│   ├── exporter.py                # Handles exporting data
-│   ├── helpers.py                 # Helper functions for filtering
-│   ├── __init__.py                # Package initializer
-│   ├── plotter.py                 # Plotting functions
-│   ├── reference_processing.py    # Functions for processing reference files
-│   ├── styler.py                  # Styling functions for dataframes
-│   └── visualizer.py              # Main visualizer class
-├── CNVizard.egg-info/
-├── CNVizard.png                   # Application logo
-├── default.env                    # Example environment file
-├── LICENSE                        # License file
-├── MANIFEST.in                    # Manifest file for packaging
-├── README.md                      # This README file
-├── requirements.txt               # Required dependencies
-├── resources/
-│   ├── annotsv_format.txt         # AnnotSV format file
-│   ├── candidate_lists/           # Candidate gene lists
-│   │   ├── cardiac_rythm_disorders.txt
-│   │   ├── ...                    # Other candidate lists
-│   ├── omim.txt                   # OMIM annotation file
-│   └── references/                # Reference files
-│       ├── bintest_ref.parquet
-│       ├── ...                    # Other reference files
-└── setup.py                       # Setup script for packaging
+To create new references using the CNVizard utility functions, follow these steps:
+
+### Prepare CNV Table
+The `prepare_cnv_table` function formats and reorders the `.cnr` DataFrame.
+
+```python
+import pandas as pd
+from cnvizard.reference_processing import prepare_cnv_table
+
+# Load your data
+df = pd.read_csv('path_to_cnr_file.cnr', delimiter='\t')
+df2 = pd.read_csv('path_to_omim_file.txt', delimiter='\t')
+
+# Prepare the CNV table
+prepared_df = prepare_cnv_table(df, df2)
 ```
+
+### Explode CNV Table
+The `explode_cnv_table` function splits redundant exons and explodes the DataFrame.
+
+```python
+from cnvizard.reference_processing import explode_cnv_table
+
+# Explode the CNV table
+exploded_df = explode_cnv_table(prepared_df)
+```
+
+### Merge Reference Files
+The `merge_reference_files` function merges previously created individual reference files into a single reference file.
+
+```python
+from cnvizard.reference_processing import merge_reference_files
+
+# Define paths
+path_to_input = 'path_to_individual_references'
+path_to_output = 'path_to_output_directory'
+path_to_bintest = 'path_to_bintest_references'
+
+# Merge reference files
+merge_reference_files(path_to_input, path_to_output, path_to_bintest)
+```
+
+### Create Reference Files
+The `create_reference_files` function creates individual reference files for CNV visualization.
+
+```python
+from cnvizard.reference_processing import create_reference_files
+
+# Define parameters
+path_to_input = 'path_to_input_directory'
+ngs_type = 'WES'  # or 'WGS'
+path_to_output = 'path_to_output_directory'
+omim_path = 'path_to_omim_directory'
+reference_type = 'normal'  # or 'bintest'
+starting_letter = 'A'  # filter subdirectories starting with this letter
+
+# Create reference files
+create_reference_files(path_to_input, ngs_type, path_to_output, omim_path, reference_type, starting_letter)
+```
+
+These functions will help you process and create references for your CNV analysis using CNVizard. Make sure to adjust the paths and parameters according to your specific setup and requirements.
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+```
+
+This section provides clear instructions on how to use the provided utility functions to create and process reference files for CNVizard. Ensure to adjust the paths and parameters according to your specific setup and requirements.
