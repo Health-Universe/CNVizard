@@ -7,7 +7,7 @@ setup(
     author="Jeremias Krause, Carlos Classen, Matthias Begemann, Florian Kraft",
     author_email="jerkrause@ukaachen.de",
     url="https://github.com/IHGGM-Aachen/CNVizard",
-    packages=find_packages(include=['cnvizard', 'cnvizard.*']),
+    packages=find_packages(include=["cnvizard", "cnvizard.*"]),
     install_requires=[
         "streamlit",
         "pandas",
@@ -16,7 +16,7 @@ setup(
         "CNVkit",
         "fastparquet",
         "plotly",
-        "python-dotenv"
+        "python-dotenv",
     ],
     include_package_data=True,
     entry_points={
@@ -29,5 +29,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
 )

@@ -7,7 +7,7 @@ from .reference_processing import (
     prepare_cnv_table,
     explode_cnv_table,
     merge_reference_files,
-    create_reference_files
+    create_reference_files,
 )
 from .styler import make_pretty
 from .exporter import CNVExporter
