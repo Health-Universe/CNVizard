@@ -94,48 +94,13 @@ CNVizard is a Streamlit-based application designed for the visualization and ana
 
 To create new references using the CNVizard utility functions, follow these steps:
 
-### Prepare CNV Table
-The `prepare_cnv_table` function formats and reorders the `.cnr` DataFrame.
-
-```python
-import pandas as pd
-from cnvizard.reference_processing import prepare_cnv_table
-
-# Load your data
-df = pd.read_csv('path_to_cnr_file.cnr', delimiter='\t')
-df2 = pd.read_csv('path_to_omim_file.txt', delimiter='\t')
-
-# Prepare the CNV table
-prepared_df = prepare_cnv_table(df, df2)
-```
-
-### Explode CNV Table
-The `explode_cnv_table` function splits redundant exons and explodes the DataFrame.
-
-```python
-from cnvizard.reference_processing import explode_cnv_table
-
-# Explode the CNV table
-exploded_df = explode_cnv_table(prepared_df)
-```
-
-### Merge Reference Files
-The `merge_reference_files` function merges previously created individual reference files into a single reference file.
-
-```python
-from cnvizard.reference_processing import merge_reference_files
-
-# Define paths
-path_to_input = 'path_to_individual_references'
-path_to_output = 'path_to_output_directory'
-path_to_bintest = 'path_to_bintest_references'
-
-# Merge reference files
-merge_reference_files(path_to_input, path_to_output, path_to_bintest)
-```
-
-### Create Reference Files
+### Create Reference Files using provided aggregated functions  
 The `create_reference_files` function creates individual reference files for CNV visualization.
+This function all necessary stepts until the merge step.
+This function requires a predefined directory structure.
+Each dir resembles an individual function.
+For exome-data : .../results/CNV/...cnr & .../results/CNV/...bintest
+For genome-data : .../exome_extract/CNV/...cnr & .../exome_extract/CNV/...bintest
 
 ```python
 from cnvizard.reference_processing import create_reference_files
@@ -150,6 +115,58 @@ starting_letter = 'A'  # filter subdirectories starting with this letter
 
 # Create reference files
 create_reference_files(path_to_input, ngs_type, path_to_output, omim_path, reference_type, starting_letter)
+
+# Define paths
+path_to_input = 'path_to_individual_references'
+path_to_output = 'path_to_output_directory'
+path_to_bintest = 'path_to_bintest_references'
+
+# Merge reference files and precalculate statistics
+merge_reference_files(path_to_input, path_to_output, path_to_bintest)
+```
+### Explanation of indivual steps : 
+In a first step the indivual .cnr or bintest files are loaded into pandas dataframes which are stored in a list 
+```python
+import pandas as pd
+from cnvizard.reference_processing import prepare_cnv_table, explode_cnv_table, merge_reference_files
+
+# Load your data / Repeat for each patient 
+list_to_collect_dataframes = []
+df = pd.read_csv('path_to_cnr_file.cnr', delimiter='\t')
+list_to_collect_dataframes.append(df)
+
+#Concat all samples to a large dataframe
+reference = pd.concat(list_of_dfs)
+
+#The `explode_cnv_table` function splits redundant exons and explodes the DataFrame.
+exploded_df = explode_cnv_table(prepared_df)
+
+# Prepare the CNV table
+#Read omim dataframe
+df2 = pd.read_csv('path_to_omim_file.txt', delimiter='\t')
+#The `prepare_cnv_table` function formats and reorders the `.cnr` reference DataFrame.
+prepared_df = prepare_cnv_table(df, df2)
+
+# Export reference to parquet file
+ordered_reference.to_parquet(export_name_parquet, index=False)
+
+```
+
+### Merge Reference Files
+The `merge_reference_files` function merges previously created multiple reference files into a single reference file.
+Additionally precalculates statistics required for the generation of internal frequencies and plotting.
+If all samples are have been used to create one large reference dataframe, this function only calculates the necessary statistics
+
+```python
+from cnvizard.reference_processing import merge_reference_files
+
+# Define paths
+path_to_input = 'path_to_individual_references'
+path_to_output = 'path_to_output_directory'
+path_to_bintest = 'path_to_bintest_references'
+
+# Merge reference files
+merge_reference_files(path_to_input, path_to_output, path_to_bintest)
 ```
 
 These functions will help you process and create references for your CNV analysis using CNVizard. Make sure to adjust the paths and parameters according to your specific setup and requirements.
