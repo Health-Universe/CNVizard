@@ -661,6 +661,10 @@ def main(env_file_path):
             entered_cnv_type,
             entered_acmg_class,
         )
+        filtered_tsv["SV_chrom"] = "chr" + filtered_tsv["SV_chrom"]
+        filtered_tsv["SV_chrom"] = pd.Categorical(filtered_tsv["SV_chrom"], chrom_list)
+        filtered_tsv = filtered_tsv.sort_values("SV_chrom")
+
         st.write("Filtered AnnotSV DataFrame:")
         st.write(filtered_tsv)
 
