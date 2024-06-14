@@ -171,6 +171,21 @@ merge_reference_files(path_to_input, path_to_output, path_to_bintest)
 
 These functions will help you process and create references for your CNV analysis using CNVizard. Make sure to adjust the paths and parameters according to your specific setup and requirements.
 
+## Convert genomics england panel app files to compatible gene lists
+The `convert_genomics_england_panel_to_txt` function transfroms gene-panel files from the genomics england panel app 
+to gene-list files compatible with the CNVizard.
+
+```python
+from cnvizard.reference_processing import convert_genomics_england_panel_to_txt
+
+# Define paths
+path_to_input = 'path_to_panel_app_file'
+path_to_output = 'path_to_output_file'
+
+# Merge reference files
+convert_genomics_england_panel_to_txt(path_to_input, path_to_output)
+```
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

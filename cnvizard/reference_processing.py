@@ -360,3 +360,22 @@ def create_reference_files(
 
     # Export reference to parquet file
     ordered_reference.to_parquet(export_name_parquet, index=False)
+
+def convert_genomics_england_panel_to_txt(
+        path_to_input:str,path_to_output:str
+    ):
+    """
+    Convert a tab delimited file from the genomics england panel app to a .txt file 
+    that is compatible with the CNVizard.
+
+    Parameters:
+        path_to_input (str): Path to the input directory.
+        path_to_output (str): Path to the output directory.
+    """
+    # read panel app list
+    panel_app_list = pd.read_csv(path_to_input, sep="\t")
+    # extract gene list from panel app dataframe
+    gene_list = panel_app_list["Gene Symbol"]
+    gene_list = gene_list.drop_duplicates()
+    # write extracted gene list into newly created .txt file
+    gene_list.to_csv(path_to_output, index=False, header=False)
