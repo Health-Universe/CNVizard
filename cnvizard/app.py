@@ -191,7 +191,7 @@ def main(env_file_path):
 
     # Load paths from environment variables
     omim_annotation_path = Path(
-        os.getenv("OMIM_ANNOTATION_PATH", "./resources/omim/omim.txt")
+        os.getenv("OMIM_ANNOTATION_PATH", "./resources/omim.txt")
     )
     candidate_list_dir = Path(
         os.getenv("CANDIDATE_LIST_DIR", "./resources/candidate_lists")
